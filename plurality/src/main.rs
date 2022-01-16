@@ -1,11 +1,10 @@
+use rust50::{get_int, get_string};
 use std::env::args;
 use std::process::exit;
-use rust50::*;
 
-#[derive(Debug)]
 struct Candidate {
     name: String,
-    votes: i32
+    votes: i32,
 }
 
 fn main() {
@@ -21,13 +20,8 @@ fn main() {
         eprintln!("Maximum number of candidates is 9");
         exit(2);
     }
-    let mut candidates = vec![];
-    for i in argv.iter().skip(1) {
-        candidates.push(Candidate {
-            name: i.to_string(),
-            votes: 0
-        })
-    }
+    let mut candidates : Vec<Candidate> = argv.into_iter()
+    .skip(1).map(|  name | Candidate { name , votes : 0}).collect();
     let voter_count = get_int("Number of voter: ");
     for _i in 0..voter_count {
         let name = get_string("Vote: ");
@@ -35,7 +29,7 @@ fn main() {
             println!("Invalid vote.");
         }
     }
-    let max = max_votes(&mut candidates);
+    let max = candidates.iter().map(|c| c.votes).max().unwrap_or_default();
     print_winner(&mut candidates, max)
 }
 
@@ -55,13 +49,4 @@ fn vote(name: &String, canidates: &mut Vec<Candidate>) -> bool {
         }
     }
     return false;
-}
-
-fn max_votes(canidates: &mut Vec<Candidate>) -> i32 {
-    let mut max = 0;
-    for i in canidates {
-        if i.votes > max {
-            max = i.votes
-        }
-    } max
 }
