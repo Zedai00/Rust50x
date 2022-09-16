@@ -1,38 +1,73 @@
-use rust50::get_int;
+use std::io::{self, Write};
 
 fn main() {
-    let card = get_int("Card: ");
-    let card: Vec<u32> = card
-        .to_string()
-        .chars()
-        .map(|c| c.to_digit(10).unwrap())
-        .collect();
-    let mut sum: u32 = 0;
-    let mut card_array = card.clone();
-    for i in card_array.iter_mut().rev().skip(1).step_by(2) {
-        *i *= 2;
+    // Example number visa
+    // let n: usize = 4003600000000014;
+    let num = get_card();
+    let num = number_to_vec(num);
+    let mut chksum = 0;
+    for i in ["even", "odd"].iter() {
+        chksum += luhn(&num, i)
     }
-    for i in card_array.iter_mut() {
-        let j = *i % 10;
-        let k = *i / 10 % 10;
-        sum += j;
-        sum += k;
-    }
-    if sum % 10 == 0 {
-        let first = card[0].to_string() + &card[1].to_string();
-        let first: i32 = first.parse().unwrap();
-        if (card_array.len() == 13 || card_array.len() == 16) && card[0] == 4 {
-            println!("VISA");
-        } else if card_array.len() == 15 && (first == 34 || first == 37) {
-            println!("AMEX")
-        } else if card_array.len() == 16
-            && (first == 51 || first == 52 || first == 53 || first == 54 || first == 55)
-        {
-            println!("MASTERCARD");
+    println!("{}", card(&num, chksum));
+}
+
+fn card(num: &Vec<u32>, chksum: u32) -> String {
+    if chksum.to_string().chars().last().unwrap() == '0' {
+        let digits = num.len();
+        let first_nums = format!("{}{}", num[0], num[1]);
+        if (digits == 13 || digits == 16) && first_nums.chars().next().unwrap() == '4' {
+            return String::from("VISA");
+        } else if digits == 15 && (first_nums == "34" || first_nums == "37") {
+            return String::from("AMEX");
+        } else if digits == 16 && (51..=55).any(|n| first_nums.contains(&n.to_string())) {
+            return String::from("MASTERCARD");
         } else {
-            println!("INVALID");
+            return String::from("INVALID");
         }
     } else {
-        println!("INVALID");
+        return String::from("INVALID");
+    }
+}
+
+fn luhn(num: &Vec<u32>, mode: &str) -> u32 {
+    let mut s = 0;
+    let mut mult = 0;
+    match mode {
+        "odd" => {
+            s = 0;
+            mult = 1;
+        }
+        "even" => {
+            s = 1;
+            mult = 2;
+        }
+        _ => panic!("Unkown Mode"),
+    }
+    let mut result = 0;
+    for i in num.iter().rev().skip(s).step_by(2) {
+        let a = number_to_vec((*i * mult) as usize).iter().sum::<u32>();
+        result += a
+    }
+    result
+}
+
+fn number_to_vec(n: usize) -> Vec<u32> {
+    n.to_string()
+        .chars()
+        .map(|c| c.to_digit(10).unwrap())
+        .collect()
+}
+
+fn get_card() -> usize {
+    loop {
+        print!("Number: ");
+        io::stdout().flush().unwrap();
+        let mut number = String::new();
+        io::stdin().read_line(&mut number).unwrap();
+        match number.trim().parse() {
+            Ok(n) => return n,
+            _ => continue,
+        }
     }
 }
