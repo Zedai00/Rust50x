@@ -5,51 +5,39 @@ fn main() {
     // let n: usize = 4003600000000014;
     let num = get_card();
     let num = number_to_vec(num);
-    let mut chksum = 0;
-    for i in ["even", "odd"].iter() {
-        chksum += luhn(&num, i)
-    }
-    println!("{}", card(&num, chksum));
+    println!("{}", card(&num, luhn(&num)));
 }
 
-fn card(num: &Vec<u32>, chksum: u32) -> String {
+fn card(num: &Vec<u32>, chksum: u32) -> &str {
     if chksum.to_string().chars().last().unwrap() == '0' {
         let digits = num.len();
         let first_nums = format!("{}{}", num[0], num[1]);
         if (digits == 13 || digits == 16) && first_nums.chars().next().unwrap() == '4' {
-            return String::from("VISA");
+            return "VISA";
         } else if digits == 15 && (first_nums == "34" || first_nums == "37") {
-            return String::from("AMEX");
+            return "AMEX";
         } else if digits == 16 && (51..=55).any(|n| first_nums.contains(&n.to_string())) {
-            return String::from("MASTERCARD");
+            return "MASTERCARD";
         } else {
-            return String::from("INVALID");
+            return "INVALID";
         }
     } else {
-        return String::from("INVALID");
+        return "INVALID";
     }
 }
 
-fn luhn(num: &Vec<u32>, mode: &str) -> u32 {
-    let mut s = 0;
-    let mut mult = 0;
-    match mode {
-        "odd" => {
-            s = 0;
-            mult = 1;
-        }
-        "even" => {
-            s = 1;
-            mult = 2;
-        }
-        _ => panic!("Unkown Mode"),
+fn luhn(num: &Vec<u32>) -> u32 {
+    let mut even = 0;
+    for i in num.iter().rev().skip(1).step_by(2) {
+        let a = number_to_vec((*i * 2) as usize).iter().sum::<u32>();
+        even += a
     }
-    let mut result = 0;
-    for i in num.iter().rev().skip(s).step_by(2) {
-        let a = number_to_vec((*i * mult) as usize).iter().sum::<u32>();
-        result += a
+    let mut odd = 0;
+    for i in num.iter().rev().step_by(2) {
+        let a = number_to_vec((*i) as usize).iter().sum::<u32>();
+        odd += a
     }
-    result
+    even + odd
 }
 
 fn number_to_vec(n: usize) -> Vec<u32> {

@@ -1,0 +1,1 @@
+{"rustc":10648053849583285360,"features":"","target":0,"profile":0,"path":0,"deps":[[7264585097504318962,"build_script_build",false,7450704146929824930]],"local":[{"RerunIfChanged":{"output":"debug/build/webster-9ca919c94ae8ccff/output","paths":["src/dictionary.json"]}}],"rustflags":[],"metadata":0,"config":0,"compile_kind":0}
