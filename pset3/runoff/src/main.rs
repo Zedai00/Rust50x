@@ -11,8 +11,27 @@ struct Candidate {
     eliminated: bool,
 }
 
+struct Election {
+    candidates: Vec<Candidate>,
+}
+
+impl Election {
+    fn new(candidates: Vec<String>) -> Self {
+        Election {
+            candidates: candidates
+                .into_iter()
+                .map(|n| Candidate {
+                    name: n,
+                    votes: 0,
+                    eliminated: false,
+                })
+                .collect::<Vec<Candidate>>(),
+        }
+    }
+}
+
 fn main() -> ExitCode {
-    let args: Vec<String> = args().collect();
+    let args: Vec<String> = args().skip(1).collect();
     if args.len() < 2 {
         println!("Usage: runoff [candidate ...]");
         return 1.into();
@@ -22,15 +41,16 @@ fn main() -> ExitCode {
         println!("Maximum number of candidates is 9");
         return 2.into();
     }
-    let mut candidates = args
-        .into_iter()
-        .skip(1)
-        .map(|n| Candidate {
-            name: n,
-            votes: 0,
-            eliminated: false,
-        })
-        .collect::<Vec<_>>();
+    // let mut candidates = args
+    //     .into_iter()
+    //     .skip(1)
+    //     .map(|n| Candidate {
+    //         name: n,
+    //         votes: 0,
+    //         eliminated: false,
+    //     })
+    //     .collect::<Vec<_>>();
+    let mut candidates = Election::new(args);
     let voter_count = match get_input("Number of voters: ").trim().parse::<i32>() {
         Ok(n) => n,
         Err(_) => {
