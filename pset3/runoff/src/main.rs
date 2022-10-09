@@ -4,7 +4,6 @@ use std::{
     process::ExitCode,
 };
 
-#[derive(Debug)]
 struct Candidate {
     name: String,
     votes: i32,
@@ -13,11 +12,14 @@ struct Candidate {
 
 struct Election {
     candidates: Vec<Candidate>,
+    voters: i32,
+    preferences: Vec<Vec<usize>>,
 }
 
 impl Election {
-    fn new(candidates: Vec<String>) -> Self {
-        Election {
+    fn new(candidates: Vec<String>, voters: i32) -> Self {
+        Self {
+            preferences: vec![vec![0; candidates.len() as usize]; voters as usize],
             candidates: candidates
                 .into_iter()
                 .map(|n| Candidate {
@@ -26,153 +28,144 @@ impl Election {
                     eliminated: false,
                 })
                 .collect::<Vec<Candidate>>(),
+            voters,
         }
+    }
+
+    fn vote(&mut self, voter: i32, rank: usize, name: String) -> bool {
+        for (index, candidate) in self.candidates.iter().enumerate() {
+            if candidate.name == name {
+                self.preferences[voter as usize][rank] = index;
+                return true;
+            }
+        }
+        false
+    }
+
+    fn commence(&mut self) -> Result<Vec<String>, ExitCode> {
+        for voter in 0..self.voters {
+            for rank in 0..self.candidates.len() {
+                let name = Self::get_input(&format!("Rank {}: ", rank + 1));
+                if !Self::vote(self, voter, rank, name) {
+                    println!("Invalid Vote.");
+                    return Err(4.into());
+                }
+            }
+            println!();
+        }
+        let mut winners: Vec<String> = Vec::new();
+        loop {
+            self.tabulate();
+
+            if let Ok(candidate) = self.won() {
+                return Ok(vec![candidate]);
+            }
+
+            let min = self.find_min();
+            let tie = self.is_tie(min);
+
+            if tie {
+                for i in &mut self.candidates {
+                    if !i.eliminated {
+                        winners.push(i.name.to_owned())
+                    }
+                }
+                return Ok(winners);
+            }
+
+            self.eliminate(min);
+
+            for i in &mut self.candidates {
+                i.votes = 0;
+            }
+        }
+    }
+
+    fn tabulate(&mut self) {
+        for i in 0..self.voters {
+            for j in 0..self.candidates.len() {
+                if !self.candidates[self.preferences[i as usize][j]].eliminated {
+                    self.candidates[self.preferences[i as usize][j]].votes += 1;
+                    break;
+                }
+            }
+        }
+    }
+
+    fn won(&self) -> Result<String, bool> {
+        for i in &self.candidates {
+            if i.votes > (self.voters / 2) {
+                return Ok(i.name.clone());
+            }
+        }
+        Err(false)
+    }
+
+    fn find_min(&mut self) -> i32 {
+        self.candidates
+            .iter()
+            .filter(|c| !c.eliminated)
+            .min_by_key(|c| c.votes)
+            .unwrap()
+            .votes
+    }
+
+    fn is_tie(&self, min: i32) -> bool {
+        for i in &self.candidates {
+            if !i.eliminated && i.votes != min {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn eliminate(&mut self, min: i32) {
+        self.candidates
+            .iter_mut()
+            .filter(|c| c.votes == min)
+            .for_each(|c| c.eliminated = true);
+    }
+
+    fn get_input(text: &str) -> String {
+        print!("{text}");
+        io::stdout().flush().unwrap();
+        let mut text = String::new();
+        io::stdin()
+            .read_line(&mut text)
+            .expect("Failed To Read Line");
+        text.trim().to_string()
     }
 }
 
 fn main() -> ExitCode {
     let args: Vec<String> = args().skip(1).collect();
-    if args.len() < 2 {
+
+    if args.is_empty() {
         println!("Usage: runoff [candidate ...]");
         return 1.into();
-    }
-    let candidate_count = (args.len() - 1) as i32;
-    if candidate_count > 9 {
+    } else if args.len() > 9 {
         println!("Maximum number of candidates is 9");
         return 2.into();
     }
-    // let mut candidates = args
-    //     .into_iter()
-    //     .skip(1)
-    //     .map(|n| Candidate {
-    //         name: n,
-    //         votes: 0,
-    //         eliminated: false,
-    //     })
-    //     .collect::<Vec<_>>();
-    let mut candidates = Election::new(args);
-    let voter_count = match get_input("Number of voters: ").trim().parse::<i32>() {
+
+    let voters = match Election::get_input("Number of voters: ").parse::<i32>() {
         Ok(n) => n,
         Err(_) => {
-            println!("Not a Number");
+            println!("Not a Valid Input");
+            println!("Input Should A Number Between 1 And 100");
             return 3.into();
         }
     };
-    if voter_count > 100 {
-        println!("Maximum number of voters is 100");
-        return 4.into();
-    };
 
-    let mut preferences = vec![vec![0; candidate_count as usize]; voter_count as usize];
+    let mut election = Election::new(args, voters);
 
-    for i in 0..voter_count {
-        for j in 0..candidate_count {
-            let name = get_input(&format!("Rank {}: ", j + 1)).trim().to_string();
-
-            if !vote(i, j, name, &mut candidates, &mut preferences) {
-                println!("Invalid Vote.");
-                return 4.into();
+    match election.commence() {
+        Ok(winners) => {
+            for i in winners {
+                println!("{i}");
             }
+            0.into()
         }
-        println!();
+        Err(c) => c,
     }
-
-    loop {
-        tabulate(voter_count, &mut candidates, &mut preferences);
-
-        let won = print_winner(&mut candidates, voter_count);
-        if won {
-            return 0.into();
-        }
-
-        let min = find_min(&mut candidates);
-        let tie = is_tie(min, &mut candidates);
-
-        if tie {
-            for i in &candidates {
-                if !i.eliminated {
-                    println!("{}", i.name);
-                }
-            }
-            return 0.into();
-        }
-
-        eliminate(min, &mut candidates);
-
-        for i in &mut candidates {
-            i.votes = 0;
-        }
-    }
-}
-
-fn vote(
-    voter: i32,
-    rank: i32,
-    name: String,
-    candidates: &mut [Candidate],
-    preferences: &mut Vec<Vec<usize>>,
-) -> bool {
-    for (index, candidate) in candidates.iter().enumerate() {
-        if candidate.name == name {
-            preferences[voter as usize][rank as usize] = index;
-            return true;
-        }
-    }
-    false
-}
-
-fn tabulate(voter_count: i32, candidates: &mut [Candidate], preferences: &mut [Vec<usize>]) {
-    for i in 0..voter_count {
-        for j in 0..candidates.len() {
-            if !candidates[preferences[i as usize][j]].eliminated {
-                candidates[preferences[i as usize][j]].votes += 1;
-                break;
-            }
-        }
-    }
-}
-
-fn print_winner(candidates: &mut [Candidate], voter_count: i32) -> bool {
-    for i in candidates {
-        if i.votes > (voter_count / 2) {
-            println!("Winner: {}", i.name);
-            return true;
-        }
-    }
-    false
-}
-
-fn find_min(candidates: &mut [Candidate]) -> i32 {
-    candidates
-        .iter()
-        .filter(|c| !c.eliminated)
-        .min_by_key(|c| c.votes)
-        .unwrap()
-        .votes
-}
-
-fn is_tie(min: i32, candidates: &mut [Candidate]) -> bool {
-    for i in candidates {
-        if !i.eliminated && i.votes != min {
-            return false;
-        }
-    }
-    true
-}
-
-fn eliminate(min: i32, candidates: &mut [Candidate]) {
-    candidates
-        .iter_mut()
-        .filter(|c| c.votes == min)
-        .for_each(|c| c.eliminated = true);
-}
-
-fn get_input(text: &str) -> String {
-    print!("{text}");
-    io::stdout().flush().unwrap();
-    let mut text = String::new();
-    io::stdin()
-        .read_line(&mut text)
-        .expect("Failed To Read Line");
-    text
 }
